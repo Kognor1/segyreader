@@ -112,8 +112,15 @@ class TraceBinHead():
             self.GeophoneGroupNumberLastTraceOrigField=[174,2]
             self.GapSize=[176,2]
             self.OverTravel=[178,2]
-            self.spare =[180,60]
-
+            self.CDP_X=[180,4]
+            self.CDP_Y=[184,4]
+            self.ILINE_NO=[188,4]
+            self.XLINE_NO=[192,4]
+            self.ShortpointNumber=[196,4]
+            self.ScalarValueForShortpointNumber=[200,2]
+            self.TraceValueMeasurementUnit=[202,2]
+            self.TransductionConstant=[204,6]
+            self.spare = [210, 60]
 
     def get_all_trace(self,list_trace_head_bin,order):
         trace={}
