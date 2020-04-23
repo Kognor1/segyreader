@@ -5,6 +5,7 @@ import numpy as np
 import math
 import ctypes
 
+spare_const=8
 class BinHead():
 
     def __init__(self, list_header_bin,order):
@@ -120,7 +121,14 @@ class TraceBinHead():
             self.ScalarValueForShortpointNumber=[200,2]
             self.TraceValueMeasurementUnit=[202,2]
             self.TransductionConstant=[204,6]
-            self.spare = [210, 60]
+            self.TransductionUnit=[210,2]
+            self.DeviceId=[212,2]
+            self.ScalarToTimes=[214,2]
+            self.SourceOrientation=[216,2]
+            self.SourceEnergyDirection=[218,6]
+            self.SourceMeasurement=[224,6]
+            self.SourceMeasurementUnit=[230,2]
+            self.spare = [232,8]
 
     def get_all_trace(self,list_trace_head_bin,order):
         trace={}
@@ -136,7 +144,7 @@ class TraceBinHead():
                 continue
             trace[i]=int.from_bytes(list_trace_head_bin[k[0]:k[0]+k[1]],byteorder=order,signed=True)#order,signed=True)#(np.frombuffer(buffer=list_trace_head_bin[k[0]:k[0]+k[1]],dtype=dt)[0])#int.from_bytes(list_trace_head_bin[k[0]:k[0]+k[1]],byteorder=order,signed=True)#order,signed=True)
 
-        trace["spare"] = int.from_bytes(list_trace_head_bin[180:180 + 60], byteorder=order, signed=True)
+        trace["spare"] = int.from_bytes(list_trace_head_bin[232:232 + spare_const], byteorder=order, signed=True)
         return trace
     def get_specific_trace(self,f,order,cur,a:list=None):
         data={}
@@ -154,7 +162,8 @@ four_bytes={"JobId","LineNumber","ReelNumber","order",
             "EnergySourcePoint","CDP","CDP_TRACE","offset",
             "ReceiverGroupElevation","SourceSurfaceElevation","SourceDepth","ReceiverDatumElevation",
             "SourceDatumElevation","SourceWaterDepth","GroupWaterDepth",
-            "SourceX","SourceY","GroupX","GroupY"}
+            "SourceX","SourceY","GroupX","GroupY","CDP_X","CDP_Y","ILINE_NO","XLINE_NO","ShortpointNumber"}
+six_bytes={"TransductionConstant","SourceEnergyDirection","SourceMeasurement"}
 
 def writeBinHead(f,Headers,order):
     bytes=0
@@ -177,10 +186,12 @@ def writeTraceHeadEmpty(f,Headers,order):
     for i,k in Headers.__dict__.items():
 
         if(i=="spare"):
-            a.extend(int(k).to_bytes(60, order, signed=True))
+            a.extend(int(k).to_bytes(spare_const, order, signed=True))
             continue
         if(i in four_bytes):
             a.extend(int(k).to_bytes(4, order, signed=True))
+        if (i in six_bytes):
+            a.extend(int(k).to_bytes(6, order, signed=True))
         else:
             a.extend(int(k).to_bytes(2, order, signed=True))
 
@@ -195,20 +206,24 @@ def writeTraceHead(f,Headers,order):
   #  print(Headers.items())
     for i,k in Headers.items():
      #   print(type(k))
-        if (i == "CoordinateUnits"):
-            break
-        if(i=="spare"):
-            a+=(int(k).to_bytes(60, order, signed=True))
+     #    if (i == "CoordinateUnits"):
+            # break
+        if(i=="IDX"):
             continue
-        if(i in four_bytes):
+        if(i=="spare"):
+            a += list(Headers.values())[-1].to_bytes(spare_const, order, signed=True)
+            continue
+        elif(i in four_bytes):
            a+=(np.array(k,dtype=order_+"i4").tobytes())
+        elif (i in six_bytes):
+            a += k.to_bytes(6,order)#(np.array(k, dtype=order_ + "i6").tobytes())
            #       sample.append(np.frombuffer(k,dtype=np.int32))#
         else:
             a += (np.array(k, dtype=order_ + "i2").tobytes())
     #print(Headers.values[26:-2:])
 
-    a += np.array(list(Headers.values()))[25:-1:].astype(order_+"i2").tobytes()
-    a += list(Headers.values())[-1].to_bytes(60, order, signed=True)
+ #   a += np.array(list(Headers.values()))[25:-1:].astype(order_+"i2").tobytes()
+ #    a += list(Headers.values())[-1].to_bytes(spare_const, order, signed=True)
     return  a
 
 def writeData(f,Data,coef,order):
