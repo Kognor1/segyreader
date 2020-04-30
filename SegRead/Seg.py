@@ -82,6 +82,14 @@ class SegReader():
         b = trace_head.get_all_trace(self.f.read(240), self.order)
         step_count = b["TRACE_SAMPLE_COUNT"]
         return step_count
+    
+    def delete_rows_cols(self,df):
+        a = df.values
+        mask = a!= 0
+        m0 = mask.any(0)
+        m1 = mask.any(1)
+        return pandas.DataFrame(a[np.ix_(m1,m0)], df.index[m1], df.columns[m0])
+    
     def get_data(self,start=0,end=None):
         self.f.seek(3600, 0)
         step_count = self.__get_step_count()
