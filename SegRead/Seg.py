@@ -139,8 +139,9 @@ class SegReader():
        # strat = time()
         self.trace_bin_headers = pandas.DataFrame.from_dict(data=all,columns=Heads.TraceBinHead().__dict__.keys(),orient='index')
         self.trace_bin_headers["IDX"]=np.arange(len(self.trace_bin_headers))
-        self.trace_bin_headers= self.delete_rows_cols(self.trace_bin_headers)
         self.trace_bin_headers=self.trace_bin_headers.drop(["spare"],axis=1)
+        self.trace_bin_headers= self.delete_rows_cols(self.trace_bin_headers)
+        
        # print(time() -strat)
         return self.data ,self.trace_bin_headers
     def check_coef(self):
