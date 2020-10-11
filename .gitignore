@@ -1,3 +1,7 @@
 /.idea
 /.ipynb_checkpoints
 /__pycache__
+/SegyClasses/__pycache__
+/venv
+/SegRead/__pycache__
+/SegRead/SegyClasses/__pycache__
