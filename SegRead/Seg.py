@@ -37,7 +37,6 @@ class SegReader():
     def get_bin_head(self):
         """ return bin_head """
         return self.bin_head
-
     def __check_order(self, b_h):
         format = struct.unpack(b'>h', b_h[24:26:])[0]
         if format in [1, 2, 3, 4, 5, 8]:
@@ -48,7 +47,6 @@ class SegReader():
             msg = 'Unable to determine the endianness of the file. ' + \
                   'Please specify it.'
             raise Exception(msg)
-
     def open(self,path ):
         """ open file
         path = path for file
@@ -61,7 +59,7 @@ class SegReader():
         self.order = self.__check_order(b_h)
         self.bin_head = BinHead(b_h, self.order)
         size_file = os.path.getsize(self.path)
-        coef = self.check_coef()
+        coef = self.__check_coef()
         self.count_trace = (size_file - 3600) / (self.bin_head.Samples * coef + 240)
         self.count_trace = int(self.count_trace)
     def read_all(self):
@@ -74,23 +72,9 @@ class SegReader():
             bin_head - binary head 
             trace_head - dataFrame with trace head for data
         """
-        data , trace_head=self.get_data_and_trace_heads()
+        data , trace_head=self.__get_data_and_trace_heads()
         self.f.close()
         return data, self.bin_head.__dict__,trace_head
-    def get_step_count(self):
-        """ 
-        return sample count
-        input
-            - 
-        return:
-            step count - Trace Sample Count
-        """
-        self.f.seek(3600, 0)
-        trace_head =TraceBinHead()
-        b = trace_head.get_all_trace(self.f.read(240), self.order)
-        step_count = b["TRACE_SAMPLE_COUNT"]
-        self.f.seek(3600, 0)
-        return step_count
     def __get_step_count(self):
         """
         inner function don't call
@@ -99,7 +83,6 @@ class SegReader():
         b = trace_head.get_all_trace(self.f.read(240), self.order)
         step_count = b["TRACE_SAMPLE_COUNT"]
         return step_count
-        
     def get_data(self,start=0,end=None):
         """ 
         return only data
@@ -111,7 +94,7 @@ class SegReader():
         """    
         self.f.seek(3600, 0)
         step_count = self.__get_step_count()
-        coef = self.check_coef()
+        coef = self.__check_coef()
         offset =coef* step_count
         data = []
         if end == None : end =self.count_trace
@@ -131,8 +114,27 @@ class SegReader():
             sample=self.__get_sample(coef,datas)
             data.append(sample)
         return (np.array(data))
-        
-    def get_data_and_trace_heads(self):
+    def read_trace_heads(self):
+        return self.__get_trace_heads()
+    def __get_trace_heads(self):
+        if (self.f == None):
+            raise Exception("File not open. Use open('path')")
+        self.f.seek(3600, 0)
+        coef = self.__check_coef()
+        self.trace_bin_headers = None
+        offset = self.bin_head.Samples * coef
+        all = np.zeros((self.count_trace, len(TraceBinHead().__dict__.keys())), dtype=np.int32)
+        trace_head = TraceBinHead()
+        start_tp = time()
+        for i in range(0, self.count_trace):
+            b = trace_head.get_all_trace(self.f.read(240), self.order)
+            step_count = b["TRACE_SAMPLE_COUNT"]
+            step_count = self.bin_head.Samples
+            self.f.seek(coef*step_count,1)
+            all[i] = list(b.values())
+        self.trace_bin_headers = pandas.DataFrame(data=all, columns=TraceBinHead().__dict__.keys())
+        return self.trace_bin_headers
+    def __get_data_and_trace_heads(self):
         """ 
         return data and trace heads without bin head
         input
@@ -144,11 +146,9 @@ class SegReader():
         if( self.f == None):
             raise Exception("File not open. Use open('path')")
         self.f.seek(3600,0)
-        coef = self.check_coef()
+        coef = self.__check_coef()
         self.trace_bin_headers=None
         offset =self.bin_head.Samples*coef
-        #print(offset)
-        # all={}#pandas.DataFrame(index=np.arange(0,len(Heads.TraceBinHead().__dict__.keys())),columns=Heads.TraceBinHead().__dict__.keys())
         all= np.zeros((self.count_trace, len(TraceBinHead().__dict__.keys())), dtype=np.int32)
         data = np.zeros((self.count_trace, self.bin_head.Samples), dtype=np.float32)
         trace_head = TraceBinHead()
@@ -167,10 +167,7 @@ class SegReader():
         self.data=data
         strat = time()
         self.trace_bin_headers = pandas.DataFrame(data=all,columns=TraceBinHead().__dict__.keys())#,orient='index')
-
-       
         return self.data ,self.trace_bin_headers
-    
     def create_data_frame(self,series):
          """
             create dataFrame with input series, where columns is Trace  Heads
@@ -181,7 +178,7 @@ class SegReader():
          """
          res = pandas.DataFrame.from_dict(data=series,columns=TraceBinHead().__dict__.keys(),orient='index')
          return res
-    def check_coef(self):
+    def __check_coef(self):
         """
             inner function dont call
         """
@@ -198,7 +195,6 @@ class SegReader():
         else:
             coef = 4
         return coef
-    
     def delete_rows_cols(self,df):
         """
         delete none and zeros columns with dataFrame
@@ -213,8 +209,6 @@ class SegReader():
         m0 = mask.any(0)
         m1 = mask.any(1)
         return pandas.DataFrame(a[np.ix_(m1,m0)], df.index[m1], df.columns[m0])
-    
-    
     def get_line_header(self):
         """
         return line header
@@ -269,11 +263,12 @@ class SegReader():
               all.append(trace_head.get_specific_trace(self.f,self.order,cur,param))
               self.f.seek(cur+240,0)
               step_count = self.bin_head.Samples
-              self.f.seek(step_count*self.check_coef(),1)
+              self.f.seek(step_count * self.__check_coef(), 1)
         return  pandas.DataFrame(all)
-    def load_all_file(self,path):
+    def __load_all_file(self,path):
         """
             inner function dont use
+            Test function
         """
         with open(path ,"r+b") as f:
             self.f = mmap(f.fileno(), 0)
@@ -287,7 +282,7 @@ class SegReader():
             self.bin_head =BinHead(b_h, self.order)
             print(self.bin_head.__sizeof__())
             size_file = os.path.getsize(path)
-            coef = self.check_coef()
+            coef = self.__check_coef()
             self.count_trace = (size_file - 3600) / (self.bin_head.Samples * coef + 240)
             self.count_trace = int(self.count_trace)
            # self.f.close()
@@ -325,5 +320,7 @@ class SegReader():
         return sample
     def get_dt(self):
         return self.bin_head.Interval
+    def get_sample_format(self):
+        return self.bin_head.Format
 
 

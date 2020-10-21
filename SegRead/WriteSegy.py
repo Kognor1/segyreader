@@ -14,9 +14,9 @@ from SegRead.SegyClasses.TraceBinHead import TraceBinHead
 
 class WriteSegy():
     def __init__(self, filename, data,
-        trace_headers = pandas.DataFrame(), bin_head = None,
-        text_head = None, order = "big", dt = 1000,
-        sample_format = 3):
+                 trace_headers=pandas.DataFrame(), bin_head=None,
+                 text_head=None, endian="big", dt=1000,
+                 sample_format=3):
         """
 
         :param filename - filename for write:
@@ -24,7 +24,7 @@ class WriteSegy():
         :param trace_headers - trace Headers:
         :param bin_head - bin head:
         :param text_head - text head:
-        :param order - "big/little":
+        :param endian - "big/little":
         :param dt:
         :param sample_format:
         """
@@ -33,7 +33,7 @@ class WriteSegy():
         self.trace_headers = trace_headers
         self.bin_head = bin_head
         self.text_head = text_head
-        self.order = order
+        self.endian = endian
         self.dt = dt
         self.sample_format = sample_format
         self.write()
@@ -49,7 +49,7 @@ class WriteSegy():
 
     def __check_bin_head(self):
         if (self.bin_head == None):
-            self.bin_head = BinHead(bytearray(400), self.order)
+            self.bin_head = BinHead(bytearray(400), self.endian)
 
         else:
             self.bin_head = self.bin_head
@@ -59,6 +59,7 @@ class WriteSegy():
         return True
 
     def __validate_all_data(self):
+        self.__validate_bin_head()
         print("TraceHeader is valid: " + str(self.__check_trace_head()))
         print("BinHead is valid: " + str(self.__check_bin_head()))
 
@@ -83,6 +84,7 @@ class WriteSegy():
 
     def __prepare_all_data(self):
         self.__prepare_trace_head()
+
 
     def __get_null_trace(self):
         """
@@ -133,32 +135,30 @@ class WriteSegy():
         self.__prepare_all_data()
         self.__write_text_header(file)
 
-        self.__write_bin_head(file, self.bin_head, self.order)
-        coef=self.__ret_coef()
+        self.__write_bin_head(file, self.bin_head, self.endian)
+        coef = self.__ret_coef()
 
         start = time()
-        self.__write_trace_head_and_data(file,coef)
-        print("Write time: "+ str(time()-start))
+        self.__write_trace_head_and_data(file, coef)
+        print("Write time: " + str(time() - start))
         # df_dict = segyTraceHeaders.to_dict(orient='index')
 
-    def __write_trace_head_and_data(self,file,coef):
+    def __write_trace_head_and_data(self, file, coef):
         all_c = bytearray()
         for i in range(0, len(self.data)):
             if (i != 0 and i % 1000000 == 0):
                 file.write(all_c)
                 all_c = bytearray()
             if (self.trace_headers.empty):
-                b = self.__write_trace_head_empty(file, self.trace_headers, self.order)
+                b = self.__write_trace_head_empty(file, self.trace_headers, self.endian)
             else:
-                b = self.__write_one_trace_head(file, self.trace_headers.iloc[i], self.order)
-            a = self.__write_data(file, self.data[i], coef, self.order)
+                b = self.__write_one_trace_head(file, self.trace_headers.iloc[i], self.endian)
+            a = self.__write_data(file, self.data[i], coef, self.endian)
             try:
                 all_c += b + a
             except Exception as e:
                 print(e)
         file.write(all_c)
-
-
 
     def __write_bin_head(self, filename, bin_head, order):
         """
@@ -196,7 +196,7 @@ class WriteSegy():
 
         return a
 
-    def __write_data(self, file,Data,coef,order):
+    def __write_data(self, file, Data, coef, order):
         """
                inner function  write  data in new segy file
             """
@@ -210,7 +210,7 @@ class WriteSegy():
                 res = Data.astype("<f").tobytes()
         return res
 
-    def _parse_difficult_value(self,num,order):
+    def _parse_difficult_value(self, num, order):
         if num != "0":
             if (num.find("e") == -1):
                 mantisa = int(float(num)).to_bytes(4, order, signed=True)
@@ -221,7 +221,7 @@ class WriteSegy():
         else:
             mantisa = int(0).to_bytes(4, order, signed=True)
             power = int(0).to_bytes(2, order, signed=True)
-        return mantisa,power
+        return mantisa, power
 
     def __write_one_trace_head(self, file, Headers, order):
         """
@@ -247,7 +247,7 @@ class WriteSegy():
         eight_part = np.array(data[76:78], dtype=order_ + "i2").tobytes()
 
         num = format(decimal.Decimal(int(data[78])))
-        mantisa,power = self._parse_difficult_value(num,order)
+        mantisa, power = self._parse_difficult_value(num, order)
         nine_part = mantisa + power
 
         ten_part = np.array(data[79:83], dtype=order_ + "i2").tobytes()
@@ -265,7 +265,23 @@ class WriteSegy():
 
     def __write_text_header(self, file):
         if (self.text_head != None):
-            file.write(self.text_head)
+            # !!
+            count_b = self.utf8len(self.text_head)
+
+
+            file.write( str.encode(self.text_head))
+            if (count_b < 3200):
+                file.write(bytearray(3200 - count_b))
         else:
             file.write(bytearray(3200))
+
+    def utf8len(self, s):
+        return len(s.encode('utf-8'))
+
+    def __validate_bin_head(self):
+        if isinstance (self.bin_head,dict):
+                bh= BinHead(bytearray(400), self.endian)
+                bh.__dict__=self.bin_head
+                self.bin_head=bh
+
 

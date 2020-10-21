@@ -4,10 +4,17 @@ from time import time
 start = time()
 ss = s.Seg.SegReader()
 ss.open("test.sgy")
-data,head,trace_head =ss.read_all()
-print(data)
+
+trace_head =ss.read_trace_heads()
 print(trace_head)
+
+data,head,trace_head=ss.read_all()
+
+print(data)
 print(head)
+print(trace_head)
+
+
 print(time()-start)
 
 
@@ -20,4 +27,4 @@ print(time()-start)
 #данные записываются в том формате в котором они. Если они np.float32, то и будут 32битными, даже если sample format поставить int
 #Dt - Шаг дискретизации
 #Очень долго создаётся dataframe из данных если передавать словарь, это уже зависит от pandas, никак не ускорю
-s.Seg.WriteSegy.WriteSegy("new.sgy",data=data,bin_head=ss.get_bin_head(),trace_headers=trace_head,dt=1000,sample_format=ss.sample_format)#,SegyHeader=ss.get_bin_head(),order=ss.order,SampleFormat=ss.sample_format,dt=1000)
+s.Seg.WriteSegy.WriteSegy("new.sgy",text_head="hello",data=data,bin_head=head,trace_headers=trace_head,dt=1000,sample_format=ss.get_sample_format())#,SegyHeader=ss.get_bin_head(),order=ss.order,SampleFormat=ss.sample_format,dt=1000)
