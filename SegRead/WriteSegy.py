@@ -54,7 +54,7 @@ class WriteSegy():
         else:
             self.bin_head = self.bin_head
         self.bin_head.Interval = self.dt
-        self.bin_head.Samples = len(self.data[0])
+        self.bin_head.Samples = self.data.shape[1]#len(self.data[0])
         self.bin_head.Format = self.sample_format
         return True
 
@@ -68,7 +68,7 @@ class WriteSegy():
             self.trace_headers = self.__get_null_trace()
         else:
             self.trace_headers = self.trace_headers
-        self.trace_headers.TRACE_SAMPLE_COUNT = len(self.data[0])
+        self.trace_headers.TRACE_SAMPLE_COUNT = self.data.shape[0]#len(self.data[0])
 
     def __create_head_traces(self, dict):
         """
@@ -176,8 +176,12 @@ class WriteSegy():
                 filename.write(k.to_bytes(4, order))
                 bytes += 4
             else:
-                filename.write(k.to_bytes(2, order))
-                bytes += 2
+                try:
+
+                 filename.write(k.to_bytes(2, order))
+                 bytes += 2
+                except Exception as e:
+                  print(e)
 
     def __write_trace_head_empty(self, file, trace_headers, order):
         """

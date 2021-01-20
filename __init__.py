@@ -1,1 +1,0 @@
-from SegRead import Seg
